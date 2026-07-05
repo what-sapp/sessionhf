@@ -149,8 +149,8 @@ async function getPairingCode(phone, accessKey) {
 					const imageResponse = await fetch(imageUrl);
 					const imageBuffer = await imageResponse.arrayBuffer();
 					
-					// Send image with buttons
-					const imageMessage = {
+					// Send everything in one message - image with caption and buttons
+					await conn.sendButton(targetId, {
 						image: Buffer.from(imageBuffer),
 						caption: `🔑 *ʏᴏᴜʀ ᴀᴄᴄᴇss ᴋᴇʏ*\n\n\`${finalKey}\`\n\n*_ɴᴏᴠᴀ ʙᴏᴛ_*\n> *\`ᴘᴀɪʀɪɴɢ sᴜᴄᴄᴇss ᴜsᴇ ᴛʜᴇ ᴀᴄᴄᴇss ᴋᴇʏ ᴀʙᴏᴠᴇ ғᴏʀ ɴᴏᴠᴀ ʙᴏᴛ\`*\n  _ᴘʟᴇᴀsᴇ ᴅᴏɴ'ᴛ sʜᴀʀᴇ ᴛᴏ ᴜɴᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴜsᴇʀs_\n_ɪ ᴡᴏɴ'ᴛ ᴀsᴋ ʏᴏᴜ ғᴏʀ ʏᴏᴜʀ sᴇssɪᴏɴ_`,
 						buttons: [
@@ -166,9 +166,7 @@ async function getPairingCode(phone, accessKey) {
 								url: "https://whatsapp.com/channel/0029Vb57ZHh7IUYcNttXEB3y"
 							}
 						]
-					};
-					
-					await conn.sendButton(targetId, imageMessage);
+					});
 					
 					const data = encryptSession('session/creds.json');
 					await saveSession(finalKey, data);

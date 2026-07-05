@@ -1,6 +1,6 @@
 import * as baileys from "@whiskeysockets/baileys";
 
-const { generateWAMessageFromContent } = baileys;
+const { generateWAMessageFromContent, prepareWAMessageMedia } = baileys;
 
 const INTERACTIVE_NODES = [
   {
@@ -17,7 +17,6 @@ const INTERACTIVE_NODES = [
 ];
 
 function toNativeFlow(button) {
-  // If already formatted, return as is
   if (button?.name && button?.buttonParamsJson) return button;
   
   // Handle URL button
@@ -63,16 +62,29 @@ export function bindButton(sock) {
       ...(content.contextInfo || {})
     };
 
-    // Handle buttons
     const buttons = normalizeButtons(content.buttons || []);
     
+    // Prepare media if image is provided
+    let imageMessage = null;
+    if (content.image) {
+      const media = await prepareWAMessageMedia(
+        { image: content.image },
+        { upload: sock.waUploadToServer }
+      );
+      imageMessage = media.imageMessage;
+    }
+
+    // Build interactive message with image header if available
     const interactive = {
-      header: {
+      header: imageMessage ? {
+        hasMediaAttachment: true,
+        imageMessage: imageMessage
+      } : {
         title: content.header || content.title || "",
         subtitle: content.subtitle || ""
       },
       body: { 
-        text: content.body || content.text || content.caption || "" 
+        text: content.caption || content.body || content.text || "" 
       },
       footer: { 
         text: content.footer || "" 
@@ -83,28 +95,6 @@ export function bindButton(sock) {
       },
       contextInfo
     };
-
-    // If there's an image, send as image message with buttons
-    if (content.image) {
-      const msg = await sock.sendMessage(jid, {
-        image: content.image,
-        caption: content.caption || content.text || ""
-      });
-      
-      // Then send the button message separately
-      const buttonMsg = generateWAMessageFromContent(
-        jid,
-        { interactiveMessage: interactive },
-        { userJid: sock.user?.id, ...options }
-      );
-      
-      await sock.relayMessage(jid, buttonMsg.message, { 
-        messageId: buttonMsg.key.id, 
-        additionalNodes: INTERACTIVE_NODES 
-      });
-      
-      return buttonMsg;
-    }
 
     const msg = generateWAMessageFromContent(
       jid,
