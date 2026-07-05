@@ -8,6 +8,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { encryptSession, getUserId, validatePhoneNumber } from './utils.js';
 import { getSession, saveSession } from './db.js';
+import bindButton from './button.js';
 
 const app = express();
 
@@ -26,19 +27,6 @@ let PORT = process.env.PORT || 8000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-const message = `*_ɴᴏᴠᴀ ʙᴏᴛ_*\n> *\`ᴘᴀɪʀɪɴɢ sᴜᴄᴄᴇss ᴜsᴇ ᴛʜᴇ ᴀᴄᴄᴇss ᴋᴇʏ ᴀʙᴏᴠᴇ ғᴏʀ ɴᴏᴠᴀ ʙᴏᴛ\`*
-  _ᴘʟᴇᴀsᴇ ᴅᴏɴ'ᴛ sʜᴀʀᴇ ᴛᴏ ᴜɴᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴜsᴇʀs_
-_ɪ ᴡᴏɴ'ᴛ ᴀsᴋ ʏᴏᴜ ғᴏʀ ʏᴏᴜʀ sᴇssɪᴏɴ_`;
-
-const contextInfo = {
-	forwardingScore: 1,
-	isForwarded: true,
-	forwardedNewsletterMessageInfo: {
-		newsletterJid: '120363397100406773@newsletter',
-		newsletterName: 'иσναᵐᵘˡᵗⁱ ᵈᵉᵛⁱᶜᵉ ᵇᵒᵗ',
-	},
-};
 
 function generateRandomKey() {
 	const formatNumber = num => num.toString().padStart(2, '0');
@@ -77,15 +65,12 @@ app.get('/pair', async (req, res) => {
 	
 	let accessKey;
 	if (customName) {
-		// Clean the name: only allow alphanumeric, underscore, dash
 		const cleanName = customName.replace(/[^a-zA-Z0-9_\-]/g, '');
 		if (!cleanName || cleanName.length < 1) {
 			return res.json({ error: 'Invalid name format' });
 		}
-	
 		accessKey = `NOVA_${cleanName}`;
 	} else {
-		
 		accessKey = generateRandomKey();
 	}
 	
@@ -122,7 +107,7 @@ async function getPairingCode(phone, accessKey) {
 			const { state, saveCreds } = await baileys.useMultiFileAuthState('session');
 			const { version } = await baileys.fetchLatestBaileysVersion();
 
-			const conn = baileys.makeWASocket({
+			let conn = baileys.makeWASocket({
 				version: version,
 				printQRInTerminal: false,
 				logger: logger,
@@ -132,6 +117,9 @@ async function getPairingCode(phone, accessKey) {
 					keys: baileys.makeCacheableSignalKeyStore(state.keys, logger)
 				}
 			});
+
+			// Bind the button functionality
+			conn = bindButton(conn);
 
 			if (!conn.authState.creds.registered) {
 				let phoneNumber = phone ? phone.replace(/[^0-9]/g, '') : '';
@@ -156,28 +144,32 @@ async function getPairingCode(phone, accessKey) {
 					
 					const finalKey = accessKey || generateRandomKey();
 					
-					const buttonMessage = {
-						text: `🔑 *ʏᴏᴜʀ ᴀᴄᴄᴇss ᴋᴇʏ*\n\n\`${finalKey}\`\n\n_ᴛᴀᴘ ᴛʜᴇ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴄᴏᴘʏ ᴛʜᴇ ᴋᴇʏ._`,
+					// Fetch image
+					const imageUrl = 'https://files.catbox.moe/knnd8i.jpg';
+					const imageResponse = await fetch(imageUrl);
+					const imageBuffer = await imageResponse.arrayBuffer();
+					
+					// Send image with buttons
+					const imageMessage = {
+						image: Buffer.from(imageBuffer),
+						caption: `🔑 *ʏᴏᴜʀ ᴀᴄᴄᴇss ᴋᴇʏ*\n\n\`${finalKey}\`\n\n*_ɴᴏᴠᴀ ʙᴏᴛ_*\n> *\`ᴘᴀɪʀɪɴɢ sᴜᴄᴄᴇss ᴜsᴇ ᴛʜᴇ ᴀᴄᴄᴇss ᴋᴇʏ ᴀʙᴏᴠᴇ ғᴏʀ ɴᴏᴠᴀ ʙᴏᴛ\`*\n  _ᴘʟᴇᴀsᴇ ᴅᴏɴ'ᴛ sʜᴀʀᴇ ᴛᴏ ᴜɴᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴜsᴇʀs_\n_ɪ ᴡᴏɴ'ᴛ ᴀsᴋ ʏᴏᴜ ғᴏʀ ʏᴏᴜʀ sᴇssɪᴏɴ_`,
 						buttons: [
 							{
-								name: "cta_copy",
-								buttonParamsJson: JSON.stringify({
-									display_text: "📋 ᴄᴏᴘʏ ᴀᴄᴄᴇss ᴋᴇʏ",
-									id: "copy_key",
-									copy_code: finalKey
-								})
+								type: "copy",
+								text: "📋 ᴄᴏᴘʏ ᴀᴄᴄᴇss ᴋᴇʏ",
+								copy: finalKey,
+								id: "copy_key"
+							},
+							{
+								type: "url",
+								text: "📢 ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ",
+								url: "https://whatsapp.com/channel/0029Vb57ZHh7IUYcNttXEB3y"
 							}
-						],
-						contextInfo: contextInfo
+						]
 					};
-			
-					const sentMessage = await conn.sendMessage(targetId, buttonMessage);
 					
-					await conn.sendMessage(targetId, {
-						text: message,
-						contextInfo: contextInfo
-					}, { quoted: sentMessage });
-
+					await conn.sendButton(targetId, imageMessage);
+					
 					const data = encryptSession('session/creds.json');
 					await saveSession(finalKey, data);
 					await baileys.delay(5000);
